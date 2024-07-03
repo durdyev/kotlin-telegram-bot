@@ -6,13 +6,15 @@ buildscript {
 
 plugins {
     alias libs.plugins.kotlinx.binaryCompatibilityValidator
-    alias libs.plugins.kotlin.jvm
+    alias libs.plugins.kotlin.jvm version("1.6.0")
+    id 'maven-publish'
 }
 
 group 'com.github.kotlintelegrambot'
-version '6.1.0'
+version '6.1.1'
 
 repositories {
+    mavenLocal()
     mavenCentral()
 }
 
@@ -58,4 +60,15 @@ java {
 
 test {
     useJUnitPlatform()
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        mavenLocal()
+    }
 }
