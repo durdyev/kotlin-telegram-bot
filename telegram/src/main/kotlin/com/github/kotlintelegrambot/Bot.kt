@@ -24,6 +24,7 @@ import com.github.kotlintelegrambot.entities.payments.PaymentInvoiceInfo
 import com.github.kotlintelegrambot.entities.payments.ShippingOption
 import com.github.kotlintelegrambot.entities.polls.Poll
 import com.github.kotlintelegrambot.entities.polls.PollType
+import com.github.kotlintelegrambot.entities.reaction.ReactionType
 import com.github.kotlintelegrambot.entities.stickers.MaskPosition
 import com.github.kotlintelegrambot.logging.LogLevel
 import com.github.kotlintelegrambot.network.ApiClient
@@ -40,6 +41,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.channels.Channel
+import okhttp3.Interceptor
 import java.net.Proxy
 import java.util.concurrent.Executors
 import java.io.File as SystemFile
@@ -81,12 +83,13 @@ class Bot private constructor(
         var logLevel: LogLevel = LogLevel.None
         var proxy: Proxy = Proxy.NO_PROXY
         var coroutineDispatcher: CoroutineDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+        var httpClientInterceptors: List<Interceptor> = emptyList()
         internal var dispatcherConfiguration: Dispatcher.() -> Unit = { }
 
         fun build(): Bot {
             val updatesQueue = Channel<DispatchableObject>()
             val looper = CoroutineLooper(Dispatchers.IO)
-            val apiClient = ApiClient(token, apiUrl, timeout, logLevel, proxy, gson)
+            val apiClient = ApiClient(token, apiUrl, timeout, logLevel, proxy, gson, httpClientInterceptors = httpClientInterceptors)
             val updater = Updater(looper, updatesQueue, apiClient, timeout)
             val dispatcher = Dispatcher(
                 updatesChannel = updatesQueue,
@@ -130,24 +133,29 @@ class Bot private constructor(
             error("To start a webhook you need to configure it on bot set up. Check the `webhook` builder function")
         }
 
-        val setWebhookResult = setWebhook(
-            webhookConfig.url,
-            webhookConfig.certificate,
-            webhookConfig.ipAddress,
-            webhookConfig.maxConnections,
-            webhookConfig.allowedUpdates,
-            webhookConfig.dropPendingUpdates,
-        )
-        val webhookSet = setWebhookResult.bimap(
-            mapResponse = { true },
-            mapError = { false },
-        )
+        return if (webhookConfig.createOnStart) {
+            val setWebhookResult = setWebhook(
+                webhookConfig.url,
+                webhookConfig.certificate,
+                webhookConfig.ipAddress,
+                webhookConfig.maxConnections,
+                webhookConfig.allowedUpdates,
+                webhookConfig.dropPendingUpdates,
+                webhookConfig.secretToken,
+            )
+            val webhookSet = setWebhookResult.bimap(
+                mapResponse = { true },
+                mapError = { false },
+            )
 
-        if (webhookSet) {
+            if (webhookSet) {
+                dispatcher.startCheckingUpdates()
+            }
+            webhookSet
+        } else {
             dispatcher.startCheckingUpdates()
+            true
         }
-
-        return webhookSet
     }
 
     /**
@@ -212,7 +220,8 @@ class Bot private constructor(
         maxConnections: Int? = null,
         allowedUpdates: List<String>? = null,
         dropPendingUpdates: Boolean? = null,
-    ) = apiClient.setWebhook(url, certificate, ipAddress, maxConnections, allowedUpdates, dropPendingUpdates).call()
+        secretToken: String? = null,
+    ) = apiClient.setWebhook(url, certificate, ipAddress, maxConnections, allowedUpdates, dropPendingUpdates, secretToken).call()
 
     fun deleteWebhook(
         dropPendingUpdates: Boolean? = null,
@@ -263,6 +272,7 @@ class Bot private constructor(
         replyToMessageId: Long? = null,
         allowSendingWithoutReply: Boolean? = null,
         replyMarkup: ReplyMarkup? = null,
+        messageThreadId: Long? = null,
     ): TelegramBotResult<Message> = apiClient.sendMessage(
         chatId,
         text,
@@ -273,6 +283,7 @@ class Bot private constructor(
         replyToMessageId,
         allowSendingWithoutReply,
         replyMarkup,
+        messageThreadId,
     )
 
     /**
@@ -2124,5 +2135,17 @@ class Bot private constructor(
         chatId,
         userId,
         customTitle,
+    )
+
+    fun setMessageReaction(
+        chatId: ChatId,
+        messageId: Long,
+        reaction: List<ReactionType>,
+        isBig: Boolean = false,
+    ): TelegramBotResult<Boolean> = apiClient.setMessageReaction(
+        chatId = chatId,
+        messageId = messageId,
+        reaction = reaction,
+        isBig = isBig,
     )
 }

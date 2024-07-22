@@ -57,6 +57,7 @@ internal interface ApiService {
         @Field(ApiConstants.SetWebhook.MAX_CONNECTIONS) maxConnections: Int? = null,
         @Field(ApiConstants.SetWebhook.ALLOWED_UPDATES) allowedUpdates: List<String>? = null,
         @Field(ApiConstants.SetWebhook.DROP_PENDING_UPDATES) dropPendingUpdates: Boolean? = null,
+        @Field(ApiConstants.SetWebhook.SECRET_TOKEN) secretToken: String? = null,
     ): Call<Response<Boolean>>
 
     @FormUrlEncoded
@@ -68,6 +69,7 @@ internal interface ApiService {
         @Field(ApiConstants.SetWebhook.MAX_CONNECTIONS) maxConnections: Int? = null,
         @Field(ApiConstants.SetWebhook.ALLOWED_UPDATES) allowedUpdates: List<String>? = null,
         @Field(ApiConstants.SetWebhook.DROP_PENDING_UPDATES) dropPendingUpdates: Boolean? = null,
+        @Field(ApiConstants.SetWebhook.SECRET_TOKEN) secretToken: String? = null,
     ): Call<Response<Boolean>>
 
     @FormUrlEncoded
@@ -79,6 +81,7 @@ internal interface ApiService {
         @Field(ApiConstants.SetWebhook.MAX_CONNECTIONS) maxConnections: Int? = null,
         @Field(ApiConstants.SetWebhook.ALLOWED_UPDATES) allowedUpdates: List<String>? = null,
         @Field(ApiConstants.SetWebhook.DROP_PENDING_UPDATES) dropPendingUpdates: Boolean? = null,
+        @Field(ApiConstants.SetWebhook.SECRET_TOKEN) secretToken: String? = null,
     ): Call<Response<Boolean>>
 
     @Multipart
@@ -90,6 +93,7 @@ internal interface ApiService {
         @Part maxConnections: MultipartBody.Part? = null,
         @Part allowedUpdates: MultipartBody.Part? = null,
         @Part dropPendingUpdates: MultipartBody.Part? = null,
+        @Part secretToken: MultipartBody.Part? = null,
     ): Call<Response<Boolean>>
 
     @GET("deleteWebhook")
@@ -119,6 +123,7 @@ internal interface ApiService {
         @Field(ApiConstants.REPLY_TO_MESSAGE_ID) replyToMessageId: Long?,
         @Field(ApiConstants.ALLOW_SENDING_WITHOUT_REPLY) allowSendingWithoutReply: Boolean?,
         @Field(ApiConstants.REPLY_MARKUP) replyMarkup: ReplyMarkup?,
+        @Field(ApiConstants.MESSAGE_THREAD_ID) messageThreadId: Long?,
     ): Call<Response<Message>>
 
     @FormUrlEncoded
@@ -952,6 +957,15 @@ internal interface ApiService {
         @Field(ApiConstants.CHAT_ID) chatId: ChatId,
         @Field(ApiConstants.USER_ID) userId: Long,
         @Field(ApiConstants.SetChatAdministratorCustomTitle.CUSTOM_TITLE) customTitle: String,
+    ): Call<Response<Boolean>>
+
+    @FormUrlEncoded
+    @POST("setMessageReaction")
+    fun setMessageReaction(
+        @Field(ApiConstants.CHAT_ID) chatId: ChatId,
+        @Field("message_id") messageId: Long,
+        @Field("reaction") reaction: String?,
+        @Field("is_big") isBig: Boolean?,
     ): Call<Response<Boolean>>
 }
 

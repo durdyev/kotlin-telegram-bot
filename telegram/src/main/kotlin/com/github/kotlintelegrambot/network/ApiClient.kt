@@ -31,6 +31,7 @@ import com.github.kotlintelegrambot.entities.payments.LabeledPrice
 import com.github.kotlintelegrambot.entities.payments.ShippingOption
 import com.github.kotlintelegrambot.entities.polls.Poll
 import com.github.kotlintelegrambot.entities.polls.PollType
+import com.github.kotlintelegrambot.entities.reaction.ReactionType
 import com.github.kotlintelegrambot.entities.stickers.MaskPosition
 import com.github.kotlintelegrambot.entities.stickers.StickerSet
 import com.github.kotlintelegrambot.logging.LogLevel
@@ -46,6 +47,7 @@ import com.github.kotlintelegrambot.network.serialization.GsonFactory
 import com.github.kotlintelegrambot.types.TelegramBotResult
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import okhttp3.Interceptor
 import okhttp3.MediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody
@@ -74,6 +76,7 @@ internal class ApiClient(
     private val multipartBodyFactory: MultipartBodyFactory = MultipartBodyFactory(GsonFactory.createForMultipartBodyFactory()),
     private val apiRequestSender: ApiRequestSender = ApiRequestSender(),
     private val apiResponseMapper: ApiResponseMapper = ApiResponseMapper(),
+    private val httpClientInterceptors: List<Interceptor> = emptyList(),
 ) {
 
     private val service: ApiService
@@ -87,6 +90,7 @@ internal class ApiClient(
             .readTimeout(botTimeout + 10L, TimeUnit.SECONDS)
             .writeTimeout(botTimeout + 10L, TimeUnit.SECONDS)
             .addInterceptor(logging)
+            .also { builder -> httpClientInterceptors.forEach { builder.addInterceptor(it) } }
             .retryOnConnectionFailure(true)
             .proxy(proxy)
             .build()
@@ -127,6 +131,7 @@ internal class ApiClient(
         maxConnections: Int? = null,
         allowedUpdates: List<String>? = null,
         dropPendingUpdates: Boolean? = null,
+        secretToken: String? = null,
     ): Call<Response<Boolean>> = when (certificate) {
         is ByFileId -> service.setWebhookWithCertificateAsFileId(
             url = url,
@@ -135,6 +140,7 @@ internal class ApiClient(
             maxConnections = maxConnections,
             allowedUpdates = allowedUpdates,
             dropPendingUpdates = dropPendingUpdates,
+            secretToken = secretToken,
         )
 
         is ByUrl -> service.setWebhookWithCertificateAsFileUrl(
@@ -144,6 +150,7 @@ internal class ApiClient(
             maxConnections = maxConnections,
             allowedUpdates = allowedUpdates,
             dropPendingUpdates = dropPendingUpdates,
+            secretToken = secretToken,
         )
 
         is ByFile -> service.setWebhookWithCertificateAsFile(
@@ -156,6 +163,7 @@ internal class ApiClient(
             maxConnections = maxConnections?.toMultipartBodyPart(ApiConstants.SetWebhook.MAX_CONNECTIONS),
             allowedUpdates = allowedUpdates?.toMultipartBodyPart(ApiConstants.SetWebhook.ALLOWED_UPDATES),
             dropPendingUpdates = dropPendingUpdates?.toMultipartBodyPart(ApiConstants.SetWebhook.DROP_PENDING_UPDATES),
+            secretToken = secretToken?.toMultipartBodyPart(ApiConstants.SetWebhook.SECRET_TOKEN),
         )
 
         is ByByteArray -> service.setWebhookWithCertificateAsFile(
@@ -168,6 +176,7 @@ internal class ApiClient(
             maxConnections = maxConnections?.toMultipartBodyPart(ApiConstants.SetWebhook.MAX_CONNECTIONS),
             allowedUpdates = allowedUpdates?.toMultipartBodyPart(ApiConstants.SetWebhook.ALLOWED_UPDATES),
             dropPendingUpdates = dropPendingUpdates?.toMultipartBodyPart(ApiConstants.SetWebhook.DROP_PENDING_UPDATES),
+            secretToken = secretToken?.toMultipartBodyPart(ApiConstants.SetWebhook.SECRET_TOKEN),
         )
 
         null -> service.setWebhook(
@@ -176,6 +185,7 @@ internal class ApiClient(
             maxConnections = maxConnections,
             allowedUpdates = allowedUpdates,
             dropPendingUpdates = dropPendingUpdates,
+            secretToken = secretToken,
         )
     }
 
@@ -199,6 +209,7 @@ internal class ApiClient(
         replyToMessageId: Long?,
         allowSendingWithoutReply: Boolean?,
         replyMarkup: ReplyMarkup?,
+        messageThreadId: Long?,
     ): TelegramBotResult<Message> = service.sendMessage(
         chatId,
         text,
@@ -209,6 +220,7 @@ internal class ApiClient(
         replyToMessageId,
         allowSendingWithoutReply,
         replyMarkup,
+        messageThreadId,
     ).runApiOperation()
 
     fun forwardMessage(
@@ -1447,6 +1459,20 @@ internal class ApiClient(
         userId,
         customTitle,
     ).runApiOperation()
+
+    fun setMessageReaction(
+        chatId: ChatId,
+        messageId: Long,
+        reaction: List<ReactionType>,
+        isBig: Boolean,
+    ): TelegramBotResult<Boolean> {
+        return service.setMessageReaction(
+            chatId = chatId,
+            messageId = messageId,
+            reaction = gson.toJson(reaction),
+            isBig = isBig,
+        ).runApiOperation()
+    }
 
     private fun <T : Any> Call<Response<T>>.runApiOperation(): TelegramBotResult<T> {
         val apiResponse = try {
